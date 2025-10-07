@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twitter Automation : Home Page</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="../styles/styles.css" />
+</head>
+
+<body>
+    <div id="login-message" style="display: none;">
+        <div class="login-message-box">
+            <img src="../assets/main-icon.png" alt="Twitter Icon" class="login-icon" />
+            <h2>🔒 Please Log In to Twitter</h2>
+            <p class="login-text">This extension requires access to your Twitter account.<br /> Open <strong>x.com</strong> or <strong>twitter.com</strong> and sign in.</p>
+            <button class="primary-btn" id="openTwitterBtn">🌐 Open Twitter</button>
+        </div>
+    </div>
+
+    <div id="main-content" style="display: none;">
+        
+    <div class="container">
+        <header>
+            <div class="title-icon">
+                <img src="../assets/main-icon.png" alt="Twitter Auto Search" class="main-icon" />
+                <h2>Twitter Automation</h2>
+            </div>
+            <nav class="tab-container">
+                <a href="popup.html" class="tab-button active" aria-label="Home Page">🏠 Home Page</a>
+                <a href="recycle-tweet.html" class="tab-button active" aria-label="Recycle Tweet">🆕 New Tweet</a>
+                <a href="post_new_comment.html" class="tab-button active" aria-label="postNewComment">💬 Target Post</a>
+
+            </nav>
+        </header>
+        <main>
+            <div class="tab-content active" id="allPosts">
+                <div class="inputs-by-row">
+                    <section class="input-group">
+                        <label for="keywordInput">🔍 Enter Search Keyword:</label>
+                        <input type="text" id="keywordInput" placeholder="Enter keyword..."
+                            aria-label="Search keyword input" />
+                    </section>
+                    <section class="input-group">
+                        <label for="searchType">🎯 Keyword Search Type:</label>
+                        <div class="custom-dropdown">
+                            <select id="searchType" aria-label="Select search type">
+                                <option value="top">Top</option>
+                                <option value="latest">Latest</option>
+                                <option value="people">People</option>
+                                <option value="media">Media</option>
+                            </select>
+                            <span class="dropdown-arrow">▼</span>
+                        </div>
+                    </section>
+                    <section class="input-group">
+                        <label for="numberofpost">📝 Number of Posts / Likes / Comments:</label>
+                        <input type="number" id="numberofpost" value="1" min="1" aria-label="Number of posts input" />
+                    </section>
+                    <section class="input-group" id="intevalofpost">
+                        <label>⏳ Messages sent at random intervals:</label>
+
+                        <div class="interval-div">
+                            <div class="number-box">
+                                <button class="btn-change" data-target="minVal" data-delta="-1">-</button>
+                                <span id="minVal">0</span>
+                                <button class="btn-change" data-target="minVal" data-delta="1">+</button>
+                            </div>
+                            <span>~</span>
+                            <div class="number-box">
+                                <button class="btn-change" data-target="maxVal" data-delta="-1">-</button>
+                                <span id="maxVal">10</span>
+                                <button class="btn-change" data-target="maxVal" data-delta="1">+</button>
+                            </div>
+                            <span class="unit">seconds</span>
+                        </div>
+                    </section>
+
+                </div>
+                <section class="checkbox-group">
+                    <h4>⚡ Actions to Perform:</h4>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="Likecheckbox" aria-label="Like checkbox" />
+                        <label for="Likecheckbox">👍 Like</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="repostcheckbox" aria-label="Repost checkbox" />
+                        <label for="repostcheckbox">🔄 Repost</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="commentcheckbox" aria-label="Comment checkbox" />
+                        <label for="commentcheckbox">💬 Comment</label>
+                    </div>
+                </section>
+                <section class="input-group">
+                    <label for="commentText">📝 Your Comment to Post:</label>
+                    <input type="text" id="commentText" placeholder="Enter your comment..."
+                        aria-label="Comment text input" />
+                </section>
+                <section class="input-group" id="mediaFileInputGroup">
+                    <label for="mediaFile" id="mediaLabel">📂 Your Image or Video to Post:</label>
+                    <input type="file" id="mediaFile" accept="image/*,video/*" aria-label="Upload media file" />
+                </section>
+                <div class="actions action-buttons">
+                    <button id="searchBtn" class="primary-btn w-100">▶️ Submit & Start</button>
+                    <button id="statisticsBtn" class="primary-btn w-100">📊 Progress Bar</button>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-header">
+                    <button id="hideBtn" class="primary-btn" aria-label="Go Back" style="width: 100%;">← Back</button>
+                    <h3 id="progressTitle">Task Progress :</h3>
+
+
+                </div>
+                <div class="progress-stats">
+                    <div class="progress-item">
+                        <span>👍 Like</span>
+                        <div class="progress-values">
+                            <span>😊 Success <span id="likeSent" class="success">0</span></span>
+                            <span>☹️ Failed <span id="likeFailed" class="error">0</span></span>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <span>🔄 Repost</span>
+                        <div class="progress-values">
+                            <span>😊 Success <span id="repostSent" class="success">0</span></span>
+                            <span>☹️ Failed <span id="repostFailed" class="error">0</span></span>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <span>💬 Comment</span>
+                        <div class="progress-values">
+                            <span>😊 Success <span id="commentSent" class="success">0</span></span>
+                            <span>☹️ Failed <span id="commentFailed" class="error">0</span></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-percentage" id="progressPercentage">0%</p>
+                </div>
+                <div class="progress-actions">
+                    <button class="btn pause-btn" aria-label="Pause Task">⏸️ Pause Process</button>
+                    <button class="btn export-btn" aria-label="Export Task Data">📤 Export Results</button>
+                </div>
+                <div id="exportModal" class="export-modal">
+                    <div class="modal-content">
+                        <span class="close-btn" id="closeExportModal">&times;</span>
+                        <h2>Exported Data</h2>
+                        <div id="exportDataContainer">
+                            <p>Loading data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+    <footer class="footer">
+        <p class="footer-left">&copy; 2025 Twitter Automation.</p>
+        <p class="footer-right">Version: <span id="extensionVersion">Loading...</span></p>
+    </footer>
+    <div id="toast-container"></div>
+    <script src="../scripts/popup.js" defer></script>
+</body>
+
+</html>

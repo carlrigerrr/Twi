@@ -1,0 +1,28 @@
+{
+   "action": {
+      "default_height": 600,
+      "default_icon": {
+         "128": "assets/icon.png",
+         "16": "assets/icon.png",
+         "48": "assets/icon.png"
+      },
+      "default_popup": "pages/popup.html",
+      "default_width": 600
+   },
+   "background": {
+      "service_worker": "scripts/background.js"
+   },
+   "description": "Twitter Automation is an automation tool designed to enhance Twitter engagement by automating tweets, likes, comments, etc.",
+   "host_permissions": [ "https://*.x.com/*", "file://*" ],
+   "icons": {
+      "128": "assets/icon.png",
+      "16": "assets/icon.png",
+      "48": "assets/icon.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlEv2k2GqXCP4SBOCEAoz+Wolspo8Ju8TcFcJvD+ny0jIp79xOBV3Q4th3+z5qyCEleuaNWPXLd56aWltUmSJqw5pZokox+ElsTjB0eGda/v3hBzSxCkkuYc9vquTlX02KWXVvK0zmGBqEGhlGQ2yUL6vtQARWqzYiJS6DdhjiXGjE7fBzgl9Vl0FXLpGOJ994DPi7xFvgEhr+/FGtLC054qtVTVuy4r0Ue6kcii10md++uZtRc99vhkbx6DPWU/NXtz/JbXlGfNAAsudgIA08/F2Ud86mUdiDmuTHWhiCYEfH/ZEVxcWw8lIO+CN0WVzv/Xgmv0rLsLk26aD8vBY2wIDAQAB",
+   "manifest_version": 3,
+   "name": "Twitter Automation by Erience (Beta)",
+   "permissions": [ "storage", "activeTab", "scripting" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.4"
+}

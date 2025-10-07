@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Twitter Automation: Recycle Tweet</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../styles/styles.css" />
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <div class="title-icon">
+        <img src="../assets/main-icon.png" alt="Twitter Auto Search" class="main-icon" />
+        <h2>Twitter Automation</h2>
+      </div>
+      <nav class="tab-container">
+        <a href="popup.html" class="tab-button" aria-label="Home Page">🏠 Home Page</a>
+        <a href="recycle-tweet.html" class="tab-button active" aria-label="Recycle Tweet">🆕 New Tweet</a>
+        <a href="post_new_comment.html" class="tab-button active" aria-label="postNewComment">💬 Target Post</a>
+
+      </nav>
+    </header>
+    <main>
+      <section id="recycleForm">
+
+        <section class="newttweetoption">
+          <label for="tweetType">⚡ Choose Tweet Type: </label><br />
+
+          <input type="radio" id="recycleTweet" name="tweetOption" value="recycleTweet" checked>
+          <label for="recycleTweet" class="tweettype">♻️ Recycle Tweet</label><br />
+
+          <input type="radio" id="smartTweet" name="tweetOption" value="smartTweet">
+          <label for="smartTweet" class="tweettype">💡 Smart Tweet</label><br />
+
+          <input type="radio" id="threadRecycle" name="tweetOption" value="threadRecycle">
+          <label for="threadRecycle" class="tweettype">🔄 Thread Recycle</label><br />
+        </section>
+
+        <section class="input-group" id="tweetInputContainer">
+          <label for="tweetInput" id="tweetInputLabel">📝 Enter Tweet URL to Recycle:</label>
+          <input type="text" id="tweetInput" placeholder="Enter Tweet URL to Recycle..." aria-label="Tweet URL Input" />
+        </section>
+        <section class="input-group" id="geminiApiKeyContainer" style="display: none;">
+          <label for="geminiApiKey">🔑 Enter Gemini API Key:</label>
+          <input type="text" id="geminiApiKey" placeholder="Enter Gemini API Key..." aria-label="Gemini API Key" />
+        </section>
+        <section class="input-group" id="promptTextContainer" style="display: none;">
+          <div class="label-container">
+            <label for="promptText">🔮 Enter Prompt:</label>
+            <button id="editPromptBtn" class="primary-btn" aria-label="Edit Prompt">✏️ Edit</button>
+          </div>
+          <div class="textarea-container">
+            <textarea id="promptText" placeholder="Enter your prompt here..." aria-label="Prompt Text Input" readonly>Rewrite the following Twitter post content in a smarter, engaging, and fresh manner while preserving the core message
+            </textarea>
+            <button id="savePromptBtn" class="primary-btn" aria-label="Save Prompt"
+              style="display: none; margin-top: 10px;">💾 Save</button>
+          </div>
+        </section>
+        <div class="action-buttons">
+          <button id="startRecycle" class="primary-btn">▶️ Start Recycling</button>
+          <button id="statisticsBtn" class="primary-btn">📊 Progress Bar</button>
+        </div>
+      </section>
+      <div class="progress-container">
+        <div class="progress-header">
+          <button id="hideBtn" class="primary-btn" aria-label="Go Back" style="width: 100%;">← Back</button>
+          <h3 id="progressRecyclePost">Task Progress :</h3>
+        </div>
+
+        <div class="progress-stats">
+          <div class="progress-item">
+            <span>Recycle Tweet URL</span>
+            <div class="progress-values">
+              <table>
+                <tr>
+                  <td>
+                    <a href="" target="_blank" id="storedUrlLink"></a>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-stats">
+          <div class="progress-item">
+            <span>♻️ Recycle Tweet</span>
+            <div class="progress-values">
+              <span>😊 Success <span id="likeSuccess" class="success">0</span></span>
+              <span>☹️ Failed <span id="likeFailed" class="error">0</span></span>
+            </div>
+          </div>
+        </div>
+        <div id="errorMessageContainer"
+          style="display: none; background: #d7c9c9; color: #f50b0b; padding: 10px; margin-top: 10px; cursor: pointer;">
+          <span id="errorMessageText"></span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+  <footer class="footer">
+    <p class="footer-left">&copy; 2025 Twitter Automation.</p>
+    <p class="footer-right">Version: <span id="extensionVersion">Loading...</span></p>
+  </footer>
+  <script src="../scripts/recycle.js" defer></script>
+</body>
+
+</html>
