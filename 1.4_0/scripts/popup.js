@@ -363,6 +363,37 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
+function normalizeHandleInput(value) {
+    if (!value) {
+        return null;
+    }
+    let cleaned = value.trim();
+    cleaned = cleaned.replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//i, "");
+    cleaned = cleaned.replace(/^@/, "");
+    cleaned = cleaned.split(/[/?\s]/)[0];
+    return cleaned ? cleaned : null;
+}
+
+function parsePeopleHandlesInput(raw) {
+    if (!raw) {
+        return [];
+    }
+    const fragments = raw
+        .split(/[,\n]+/)
+        .map(fragment => normalizeHandleInput(fragment))
+        .filter(Boolean);
+    const seen = new Set();
+    const handles = [];
+    for (const handle of fragments) {
+        const key = handle.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            handles.push(handle);
+        }
+    }
+    return handles;
+}
+
 document.getElementById("searchBtn").addEventListener("click", async () => {
     let keyword = document.getElementById("keywordInput").value.trim();
     let Likecheckbox = document.getElementById("Likecheckbox").checked;
@@ -433,10 +464,15 @@ document.getElementById("searchBtn").addEventListener("click", async () => {
         console.log("'Statistics' button not found!");
     }
     document.getElementById("searchBtn").disabled = true;
+    const parsedHandles = searchType === "people" ? parsePeopleHandlesInput(keyword) : [];
+    const primaryKeyword = parsedHandles.length > 0 ? parsedHandles[0] : keyword;
+
     chrome.runtime.sendMessage(
         {
             action: "searchTwitter",
             keyword,
+            primaryKeyword,
+            keywordList: parsedHandles,
             options: { Likecheckbox, repostcheckbox, commentcheckbox },
             numberofpost,
             commentText,
