@@ -38,8 +38,12 @@
                 <div class="inputs-by-row">
                     <section class="input-group">
                         <label for="keywordInput">🔍 Enter Search Keyword:</label>
-                        <input type="text" id="keywordInput" placeholder="Enter keyword..."
-                            aria-label="Search keyword input" />
+                        <textarea id="keywordInput" placeholder="Enter keyword..." rows="1"
+                            aria-label="Search keyword input"></textarea>
+                        <p class="input-helper" id="peopleHandlesHint" style="display: none;">
+                            Tip: Add multiple usernames separated by commas or new lines (e.g. <code>@firstuser</code>,
+                            <code>seconduser</code>).
+                        </p>
                     </section>
                     <section class="input-group">
                         <label for="searchType">🎯 Keyword Search Type:</label>
