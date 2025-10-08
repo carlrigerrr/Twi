@@ -14,10 +14,44 @@ function extractTweetData(url) {
         return null;
     }
 }
+
+function normalizeHandle(value) {
+    if (!value) {
+        return null;
+    }
+    let cleaned = value.trim();
+    cleaned = cleaned.replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//i, "");
+    cleaned = cleaned.replace(/^@/, "");
+    cleaned = cleaned.split(/[/?\s]/)[0];
+    return cleaned ? cleaned : null;
+}
+
+function parsePeopleHandles(raw, fallback = []) {
+    const initial = Array.isArray(fallback) ? fallback : [];
+    if (!raw && initial.length === 0) {
+        return [];
+    }
+    const fragments = (raw || "")
+        .split(/[,\n]+/)
+        .map(fragment => normalizeHandle(fragment))
+        .filter(Boolean);
+    const seen = new Set();
+    const handles = [];
+    for (const handle of [...fragments, ...initial]) {
+        const key = handle.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            handles.push(handle);
+        }
+    }
+    return handles;
+}
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("📩 Message received in background.js:", message);
     if (message.action === "searchTwitter") {
-        let keyword = message.keyword;
+        let keywordRaw = message.keyword;
+        let primaryKeyword = message.primaryKeyword || keywordRaw;
+        let keywordList = Array.isArray(message.keywordList) ? message.keywordList : [];
         let options = message.options || { Likecheckbox: false, repostcheckbox: false, commentcheckbox: false };
         let numberofpost = message.numberofpost || "1";
         let intevalofpost = message.intevalofpost || "1";
@@ -26,12 +60,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let mediaFilePath = message.mediaFilePath;
         let mediaType = message.mediaType
 
-        if (!keyword) {
+        if (!keywordRaw) {
             sendResponse({ status: "error", message: "No keyword provided" });
             console.log("No keyword provided");
             return;
         }
-        console.log(" Searching Twitter for:", keyword);
+        console.log(" Searching Twitter for:", keywordRaw);
         console.log(" Options:", options);
         console.log(" Number of posts:", numberofpost);
         console.log(" Interval of posts:", intevalofpost);
@@ -39,7 +73,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log(" Search Type:", searchType);
         console.log("mediaFilePath:", mediaFilePath);
         console.log("mediaType:", mediaType);
-        chrome.storage.local.set({ keyword, options, numberofpost, commentText, searchType, intevalofpost, mediaFilePath, mediaType }, () => {
+        const normalizedHandles = parsePeopleHandles(keywordRaw, keywordList);
+        keywordList = normalizedHandles;
+        if (searchType === "people" && keywordList.length > 0) {
+            const normalizedPrimary = normalizeHandle(primaryKeyword) || keywordList[0];
+            primaryKeyword = normalizedPrimary;
+        } else {
+            primaryKeyword = keywordRaw;
+        }
+        const numberOfPostInt = Math.max(1, parseInt(numberofpost, 10) || 1);
+        const totalTaskCount = searchType === "people" && keywordList.length > 0
+            ? numberOfPostInt * keywordList.length
+            : numberOfPostInt;
+        chrome.storage.local.set({
+            keyword: keywordRaw,
+            primaryKeyword,
+            keywordList,
+            options,
+            numberofpost: numberOfPostInt,
+            commentText,
+            searchType,
+            intevalofpost,
+            mediaFilePath,
+            mediaType,
+            totalTaskCount
+        }, () => {
             console.log("✅ Data stored in chrome.storage.local");
         });
 
@@ -49,7 +107,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 console.error(" No active tab found!");
                 return;
             }
-            let searchURL = `https://x.com/search?q=${encodeURIComponent(keyword)}&src=typed_query`;
+            let queryTarget = searchType === "people" && keywordList.length > 0 ? keywordList[0] : primaryKeyword;
+            let searchURL = `https://x.com/search?q=${encodeURIComponent(queryTarget)}&src=typed_query`;
             console.log("🔗 Navigating to:", searchURL);
             chrome.tabs.update(tabs[0].id, { url: searchURL }, () => {
                 console.log("⏳ Waiting for Twitter page to load...");

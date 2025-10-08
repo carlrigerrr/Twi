@@ -185,6 +185,8 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("🔄 Progress restored on popup open:", data.progressPercentage);
         }
     });
+    const keywordInput = document.getElementById("keywordInput");
+    const peopleHandlesHint = document.getElementById("peopleHandlesHint");
     const searchType = document.getElementById("searchType");
     const numberofpost = document.getElementById("numberofpost");
     const likeCheckbox = document.getElementById("Likecheckbox");
@@ -227,6 +229,42 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     updatePauseButtonState();
+
+    function adjustPeopleKeywordRows() {
+        if (!keywordInput) {
+            return;
+        }
+        if (searchType.value === "people") {
+            const lineCount = keywordInput.value ? keywordInput.value.split(/\n/).length : 0;
+            keywordInput.rows = Math.min(6, Math.max(2, lineCount || 1));
+        } else {
+            keywordInput.rows = 1;
+        }
+    }
+
+    function updateKeywordInputState() {
+        const isPeopleSearch = searchType.value === "people";
+        if (keywordInput) {
+            keywordInput.placeholder = isPeopleSearch
+                ? "Enter usernames separated by commas or new lines"
+                : "Enter keyword...";
+        }
+        if (peopleHandlesHint) {
+            peopleHandlesHint.style.display = isPeopleSearch ? "block" : "none";
+        }
+        adjustPeopleKeywordRows();
+    }
+
+    function handleKeywordInputChange() {
+        adjustPeopleKeywordRows();
+        saveSettings();
+    }
+
+    function handleSearchTypeChange() {
+        updateKeywordInputState();
+        saveSettings();
+    }
+
     function loadSettings() {
         chrome.storage.local.get([
             "keyword", "searchType", "numberofpost",
@@ -239,6 +277,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (typeof result.repost === "boolean") repostCheckbox.checked = result.repost;
             if (typeof result.comment === "boolean") commentCheckbox.checked = result.comment;
             if (result.commentText) commentText.value = result.commentText;
+            updateKeywordInputState();
         });
     }
     function saveSettings() {
@@ -253,13 +292,14 @@ document.addEventListener("DOMContentLoaded", function () {
         };
         chrome.storage.local.set(settings);
     }
-    keywordInput.addEventListener("input", saveSettings);
-    searchType.addEventListener("change", saveSettings);
+    keywordInput.addEventListener("input", handleKeywordInputChange);
+    searchType.addEventListener("change", handleSearchTypeChange);
     numberofpost.addEventListener("input", saveSettings);
     likeCheckbox.addEventListener("change", saveSettings);
     repostCheckbox.addEventListener("change", saveSettings);
     commentCheckbox.addEventListener("change", saveSettings);
     commentText.addEventListener("input", saveSettings);
+    updateKeywordInputState();
     loadSettings();
     commentInputGroup.style.display = "none";
     fileInputGroup.style.display = "none";
@@ -363,6 +403,37 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
+function normalizeHandleInput(value) {
+    if (!value) {
+        return null;
+    }
+    let cleaned = value.trim();
+    cleaned = cleaned.replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//i, "");
+    cleaned = cleaned.replace(/^@/, "");
+    cleaned = cleaned.split(/[/?\s]/)[0];
+    return cleaned ? cleaned : null;
+}
+
+function parsePeopleHandlesInput(raw) {
+    if (!raw) {
+        return [];
+    }
+    const fragments = raw
+        .split(/[,\n]+/)
+        .map(fragment => normalizeHandleInput(fragment))
+        .filter(Boolean);
+    const seen = new Set();
+    const handles = [];
+    for (const handle of fragments) {
+        const key = handle.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            handles.push(handle);
+        }
+    }
+    return handles;
+}
+
 document.getElementById("searchBtn").addEventListener("click", async () => {
     let keyword = document.getElementById("keywordInput").value.trim();
     let Likecheckbox = document.getElementById("Likecheckbox").checked;
@@ -433,10 +504,15 @@ document.getElementById("searchBtn").addEventListener("click", async () => {
         console.log("'Statistics' button not found!");
     }
     document.getElementById("searchBtn").disabled = true;
+    const parsedHandles = searchType === "people" ? parsePeopleHandlesInput(keyword) : [];
+    const primaryKeyword = parsedHandles.length > 0 ? parsedHandles[0] : keyword;
+
     chrome.runtime.sendMessage(
         {
             action: "searchTwitter",
             keyword,
+            primaryKeyword,
+            keywordList: parsedHandles,
             options: { Likecheckbox, repostcheckbox, commentcheckbox },
             numberofpost,
             commentText,
