@@ -129,6 +129,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    if (message.action === "navigateToProfile") {
+        const handle = normalizeHandle(message.handle);
+        if (!handle) {
+            sendResponse({ status: "error", message: "Invalid handle" });
+            return false;
+        }
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length === 0) {
+                console.error("No active tab available for navigation");
+                sendResponse({ status: "error", message: "No active tab" });
+                return;
+            }
+            const tabId = tabs[0].id;
+            const targetUrl = `https://x.com/${handle}`;
+            chrome.tabs.update(tabId, { url: targetUrl }, () => {
+                console.log(`🔁 Navigating to profile @${handle}`);
+                setTimeout(() => {
+                    chrome.scripting.executeScript({
+                        target: { tabId },
+                        files: ["scripts/content/homeContent.js"]
+                    }).then(() => {
+                        console.log("✅ Re-injected content script after profile navigation");
+                    }).catch((err) => {
+                        console.error("Error re-injecting content script:", err);
+                    });
+                }, 4000);
+            });
+            sendResponse({ status: "ok" });
+        });
+        return true;
+    }
+
     if (message.action == "startRecycle") {
         console.log("HELLO");
         let recyclekeyword = extractTweetData(message.tweetText);

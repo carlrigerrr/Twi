@@ -124,6 +124,7 @@ chrome.storage.local.get(["keyword", "primaryKeyword", "keywordList", "options",
         console.log("No search type provided, exiting script.");
         return;
     }
+    let pauseForNavigation = false;
     for (index = postIndex; index < total_comment; index++) {
         console.log("index--->", index);
         await sleep(5)
@@ -169,6 +170,11 @@ chrome.storage.local.get(["keyword", "primaryKeyword", "keywordList", "options",
             } else if (searchType == "people") {
                 console.log("🔍 Executing People Search");
                 const handled = await people();
+                if (handled === "navigating") {
+                    pauseForNavigation = true;
+                    console.log("⏸️ Navigation triggered for next profile; pausing loop until reload.");
+                    break;
+                }
                 if (!handled) {
                     console.warn("⚠️ No tweet processed for this task, marking as skipped.");
                     await indexupdate(index + 1);
@@ -195,6 +201,10 @@ chrome.storage.local.get(["keyword", "primaryKeyword", "keywordList", "options",
             commentStatus = null;
             repostStatus = null;
         }
+    }
+    if (pauseForNavigation) {
+        console.log("⏳ Awaiting navigation to finish before continuing run.");
+        return;
     }
     console.log("all process completed");
 });
@@ -687,6 +697,9 @@ async function legacyPeopleFlow() {
 async function people() {
     if (normalizedProfileHandle) {
         const handled = await targetedPeopleFlow();
+        if (handled === "navigating") {
+            return "navigating";
+        }
         if (handled) {
             return true;
         }
@@ -902,6 +915,9 @@ function isOnTargetProfilePage() {
 async function targetedPeopleFlow() {
     try {
         const ready = await ensureTargetProfileReady();
+        if (ready === "navigating") {
+            return "navigating";
+        }
         if (!ready) {
             console.warn("Target profile could not be prepared.");
             return false;
@@ -951,14 +967,13 @@ async function ensureTargetProfileReady() {
         targetedProfileReady = navigated;
         return navigated;
     }
-    const targetUrl = `https://x.com/${normalizedProfileHandle}`;
-    const targetPath = `/${normalizedProfileHandle.toLowerCase()}`;
-    if (window.location.pathname.toLowerCase() !== targetPath) {
-        window.location.href = targetUrl;
+    const navigationRequested = await requestProfileNavigation(normalizedProfileHandle);
+    if (navigationRequested) {
+        targetedProfileReady = false;
+        return "navigating";
     }
-    const navigated = await waitForCondition(() => isOnTargetProfilePage(), 15000, 300);
-    targetedProfileReady = navigated;
-    return navigated;
+    console.warn("Unable to trigger navigation to target profile.");
+    return false;
 }
 
 async function selectPeopleTab() {
@@ -1037,6 +1052,29 @@ async function safelyReturnToProfileTimeline() {
     if (normalizedProfileHandle && !isOnTargetProfilePage()) {
         await waitForCondition(() => isOnTargetProfilePage(), 8000, 300);
     }
+}
+
+function requestProfileNavigation(handle) {
+    return new Promise((resolve) => {
+        const normalized = normalizeHandle(handle);
+        if (!normalized) {
+            resolve(false);
+            return;
+        }
+        try {
+            chrome.runtime.sendMessage({ action: "navigateToProfile", handle: normalized }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.warn("Navigation message error:", chrome.runtime.lastError.message);
+                    resolve(false);
+                    return;
+                }
+                resolve(response && response.status === "ok");
+            });
+        } catch (error) {
+            console.warn("Failed to request profile navigation:", error);
+            resolve(false);
+        }
+    });
 }
 
 
