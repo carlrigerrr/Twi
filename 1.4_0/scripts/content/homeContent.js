@@ -8,6 +8,14 @@ var minVal;
 var maxVal;
 var mediaFilePath;
 var mediaType;
+var keyword;
+var keywordList = [];
+var peopleHandles = [];
+var postsPerHandle = 1;
+var totalTaskCount = 0;
+var lastHandleIndex = -1;
+var normalizedProfileHandle = null;
+var targetedProfileReady = false;
 var likeStatus = null;
 var commentStatus = null;
 var repostStatus = null;
@@ -36,7 +44,7 @@ async function waitForResume() {
     }
 }
 
-chrome.storage.local.get(["keyword", "options", "numberofpost", "commentText", "searchType", 'maxVal','minVal', 'mediaFilePath', 'mediaType', 'isPaused', 'postIndex', 'postResult'], async (result) => {
+chrome.storage.local.get(["keyword", "primaryKeyword", "keywordList", "options", "numberofpost", "commentText", "searchType", 'maxVal','minVal', 'mediaFilePath', 'mediaType', 'isPaused', 'postIndex', 'postResult', 'totalTaskCount'], async (result) => {
     console.log("Retrieved Data:", result);
     console.log("ispaused", result.isPaused);
     isPaused = result.isPaused;
@@ -57,12 +65,56 @@ chrome.storage.local.get(["keyword", "options", "numberofpost", "commentText", "
     }
     minVal = result.minVal;
     maxVal = result.maxVal;
-    total_comment = result.numberofpost;
+    let storedPosts = parseInt(result.numberofpost, 10);
+    postsPerHandle = !isNaN(storedPosts) && storedPosts > 0 ? storedPosts : 1;
     action = result.options;
     comment = result.commentText;
     searchType = result.searchType;
     mediaFilePath = result.mediaFilePath
     mediaType = result.mediaType
+    keyword = result.primaryKeyword || result.keyword;
+    keywordList = Array.isArray(result.keywordList) ? result.keywordList.map(handle => normalizeHandle(handle)).filter(Boolean) : [];
+    peopleHandles = keywordList.length ? [...keywordList] : [];
+    if (peopleHandles.length > 1) {
+        const seenHandles = new Set();
+        peopleHandles = peopleHandles.filter(handle => {
+            const key = handle.toLowerCase();
+            if (seenHandles.has(key)) {
+                return false;
+            }
+            seenHandles.add(key);
+            return true;
+        });
+    }
+    if (searchType === "people" && peopleHandles.length === 0 && keyword) {
+        const fallbackHandle = normalizeHandle(keyword);
+        if (fallbackHandle) {
+            peopleHandles = [fallbackHandle];
+        }
+    }
+    const storedTotal = parseInt(result.totalTaskCount, 10);
+    if (searchType === "people") {
+        const computedTotal = postsPerHandle * (peopleHandles.length > 0 ? peopleHandles.length : 1);
+        totalTaskCount = !isNaN(storedTotal) && storedTotal > 0 ? storedTotal : computedTotal;
+        if (peopleHandles.length > 0) {
+            normalizedProfileHandle = peopleHandles[0];
+        } else {
+            normalizedProfileHandle = normalizeHandle(keyword);
+        }
+        if (isNaN(storedTotal) || storedTotal !== totalTaskCount) {
+            chrome.storage.local.set({ totalTaskCount });
+        }
+    } else {
+        totalTaskCount = !isNaN(storedTotal) && storedTotal > 0 ? storedTotal : postsPerHandle;
+        normalizedProfileHandle = normalizeHandle(keyword);
+        if (isNaN(storedTotal) || storedTotal !== totalTaskCount) {
+            chrome.storage.local.set({ totalTaskCount });
+        }
+        peopleHandles = [];
+    }
+    total_comment = totalTaskCount;
+    targetedProfileReady = false;
+    lastHandleIndex = -1;
     console.log("🔎 Search Type:", searchType);
     console.log("🔎 Search Type:", result.commentText);
     console.log("mediaFilePath:", result.mediaFilePath);
@@ -87,6 +139,21 @@ chrome.storage.local.get(["keyword", "options", "numberofpost", "commentText", "
             await indexupdate(index)
             console.log("not breck");
             console.log("index``````````````````", index);
+            if (searchType === "people") {
+                if (peopleHandles.length > 0) {
+                    const handleIndex = Math.floor(index / postsPerHandle);
+                    const boundedIndex = Math.min(handleIndex, peopleHandles.length - 1);
+                    const nextHandle = peopleHandles[boundedIndex];
+                    if (boundedIndex !== lastHandleIndex || normalizedProfileHandle !== nextHandle) {
+                        lastHandleIndex = boundedIndex;
+                        normalizedProfileHandle = nextHandle;
+                        targetedProfileReady = false;
+                        console.log(`🎯 Switching to profile @${normalizedProfileHandle} (${boundedIndex + 1}/${peopleHandles.length})`);
+                    }
+                } else {
+                    normalizedProfileHandle = normalizeHandle(keyword);
+                }
+            }
             if (searchType == "latest") {
                 console.log("🔍 Executing Latest Search");
                 await latest();
@@ -132,7 +199,7 @@ async function indexupdate(index) {
     });
 }
 function sendStatusToBackground(status, message, likeStatus, commentStatus, repostStatus) {
-    chrome.storage.local.get(["progressData", "postIndex", "numberofpost"], (data) => {
+    chrome.storage.local.get(["progressData", "postIndex", "numberofpost", "totalTaskCount"], (data) => {
         let progressData = data.progressData || {
             likeSent: "0",
             likeFailed: "0",
@@ -144,7 +211,11 @@ function sendStatusToBackground(status, message, likeStatus, commentStatus, repo
         };
 
         let postIndex = data.postIndex || 0;
-        let totalPosts = data.numberofpost || 0;
+        let totalPosts = data.totalTaskCount ?? data.numberofpost ?? 0;
+        totalPosts = parseInt(totalPosts, 10);
+        if (isNaN(totalPosts) || totalPosts < 0) {
+            totalPosts = 0;
+        }
 
         if (likeStatus !== null) {
             progressData[likeStatus ? "likeSent" : "likeFailed"] = (parseInt(progressData[likeStatus ? "likeSent" : "likeFailed"]) + 1).toString();
@@ -413,9 +484,18 @@ async function likeclick() {
 }
 async function backButtonClick() {
     try {
-        document.querySelector("div.css-175oi2r.r-1pz39u2.r-1777fci.r-15ysp7h.r-1habvwh.r-s8bhmr > button > div").click();
+        let backButton = document.querySelector('button[data-testid="app-bar-back"]');
+        if (!backButton) {
+            backButton = document.querySelector("div.css-175oi2r.r-1pz39u2.r-1777fci.r-15ysp7h.r-1habvwh.r-s8bhmr > button > div");
+        }
+        if (backButton) {
+            backButton.click();
+        } else {
+            window.history.back();
+        }
     } catch (error) {
-        console.log("backButtonClick Error", error)
+        console.log("backButtonClick Error", error);
+        window.history.back();
     }
 }
 
@@ -467,7 +547,7 @@ async function getLastQueryParam() {
         return null;
     }
 }
-async function people() {
+async function legacyPeopleFlow() {
     let result = false;
     if (attempt == undefined) {
         attempt = 1;
@@ -579,6 +659,19 @@ async function people() {
         left: 0,
         behavior: "smooth"
     });
+}
+
+async function people() {
+    if (normalizedProfileHandle) {
+        const handled = await targetedPeopleFlow();
+        if (handled) {
+            return;
+        }
+        console.warn("Falling back to legacy people search flow after targeted profile attempt.");
+        normalizedProfileHandle = null;
+        targetedProfileReady = false;
+    }
+    await legacyPeopleFlow();
 }
 
 async function media() {
@@ -699,9 +792,6 @@ async function waitForElement(selector, timeout = 20000) {
     });
 }
 
-async function sleep(seconds) {
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-}
 async function waitForVideoProcessingCompletion(timeout = 180000, interval = 3000) {
     return new Promise((resolve, reject) => {
         const startTime = Date.now();
@@ -758,6 +848,166 @@ async function uploadMediaFromLocalPath(base64String, mediaType) {
         console.log(`✅ ${mediaType} is fully processed and ready!`);
     } catch (error) {
         console.log(` Error uploading ${mediaType}:`, error);
+    }
+}
+
+function normalizeHandle(value) {
+    if (!value) {
+        return null;
+    }
+    let cleaned = value.trim();
+    cleaned = cleaned.replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//i, "");
+    cleaned = cleaned.replace(/^@/, "");
+    cleaned = cleaned.split(/[/?\s]/)[0];
+    return cleaned ? cleaned : null;
+}
+
+function isOnTargetProfilePage() {
+    if (!normalizedProfileHandle) {
+        return false;
+    }
+    const currentPath = window.location.pathname.toLowerCase();
+    const handlePath = `/${normalizedProfileHandle.toLowerCase()}`;
+    return currentPath === handlePath || currentPath.startsWith(`${handlePath}/`);
+}
+
+async function targetedPeopleFlow() {
+    try {
+        const ready = await ensureTargetProfileReady();
+        if (!ready) {
+            console.warn("Target profile could not be prepared.");
+            return false;
+        }
+        const anchor = await findNextTweetOnProfile();
+        if (!anchor) {
+            console.warn("No new tweets found on target profile.");
+            return false;
+        }
+        const timeElement = anchor.querySelector('time');
+        if (timeElement) {
+            timeElement.click();
+        } else {
+            anchor.click();
+        }
+        await sleep(2);
+        await postclick();
+        await safelyReturnToProfileTimeline();
+        return true;
+    } catch (error) {
+        console.error("Error during targeted people flow:", error);
+        return false;
+    }
+}
+
+async function ensureTargetProfileReady() {
+    if (!normalizedProfileHandle) {
+        return false;
+    }
+    if (targetedProfileReady && isOnTargetProfilePage()) {
+        return true;
+    }
+    if (isOnTargetProfilePage()) {
+        targetedProfileReady = true;
+        return true;
+    }
+    const path = window.location.pathname;
+    if (path.startsWith(`/search`)) {
+        await selectPeopleTab();
+        const profileLink = await findProfileLinkForHandle(normalizedProfileHandle);
+        if (!profileLink) {
+            console.warn("Unable to locate target profile in People results.");
+            return false;
+        }
+        profileLink.click();
+        const navigated = await waitForCondition(() => isOnTargetProfilePage(), 12000, 300);
+        targetedProfileReady = navigated;
+        return navigated;
+    }
+    const targetUrl = `https://x.com/${normalizedProfileHandle}`;
+    const targetPath = `/${normalizedProfileHandle.toLowerCase()}`;
+    if (window.location.pathname.toLowerCase() !== targetPath) {
+        window.location.href = targetUrl;
+    }
+    const navigated = await waitForCondition(() => isOnTargetProfilePage(), 15000, 300);
+    targetedProfileReady = navigated;
+    return navigated;
+}
+
+async function selectPeopleTab() {
+    const currentTab = await getLastQueryParam();
+    if (currentTab === "user") {
+        return;
+    }
+    const tabLinks = Array.from(document.querySelectorAll('a[role="tab"], div[role="tab"] > a'));
+    const peopleTab = tabLinks.find(link => link.textContent.trim().toLowerCase() === "people");
+    if (peopleTab) {
+        peopleTab.click();
+        await sleep(2);
+    }
+}
+
+async function findProfileLinkForHandle(handle, maxScrollAttempts = 6) {
+    const targetPath = `/${handle.toLowerCase()}`;
+    for (let attemptIndex = 0; attemptIndex < maxScrollAttempts; attemptIndex++) {
+        const links = Array.from(document.querySelectorAll('a[href^="/"]'));
+        const match = links.find(link => {
+            const href = (link.getAttribute('href') || '').toLowerCase().split('?')[0].replace(/\/+$/, '');
+            if (href !== targetPath) {
+                return false;
+            }
+            const text = (link.textContent || '').toLowerCase();
+            return text.includes(`@${handle.toLowerCase()}`) || link.getAttribute('role') === 'link';
+        });
+        if (match) {
+            return match;
+        }
+        window.scrollBy({ top: 600, left: 0, behavior: "smooth" });
+        await sleep(1.5);
+    }
+    return null;
+}
+
+async function waitForCondition(conditionFn, timeoutMs = 10000, intervalMs = 250) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        try {
+            if (conditionFn()) {
+                return true;
+            }
+        } catch (error) {
+            console.warn("waitForCondition check error:", error);
+        }
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+    return false;
+}
+
+async function findNextTweetOnProfile(maxScrollAttempts = 6) {
+    for (let attemptIndex = 0; attemptIndex < maxScrollAttempts; attemptIndex++) {
+        const anchors = Array.from(document.querySelectorAll('article a[href*="/status/"]')).filter(anchor => anchor.querySelector('time'));
+        for (const anchor of anchors) {
+            const href = anchor.getAttribute('href');
+            if (!href) {
+                continue;
+            }
+            const url = `https://x.com${href}`;
+            const isNew = await checkAndStoreUrl(url);
+            if (isNew) {
+                return anchor;
+            }
+        }
+        window.scrollBy({ top: 800, left: 0, behavior: "smooth" });
+        await sleep(2);
+    }
+    return null;
+}
+
+async function safelyReturnToProfileTimeline() {
+    await sleep(1);
+    await backButtonClick();
+    await sleep(2);
+    if (normalizedProfileHandle && !isOnTargetProfilePage()) {
+        await waitForCondition(() => isOnTargetProfilePage(), 8000, 300);
     }
 }
 
